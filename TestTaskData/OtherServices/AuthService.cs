@@ -2,7 +2,9 @@
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -42,15 +44,33 @@ namespace TestTaskData.OtherServices
 
             return true;
         }
-        public static SecurityKey GenerateSecurityKey()
+
+        public static SymmetricSecurityKey GenerateSecurityKey()
         {
-            // Generate a secure random key of the desired length (e.g., 256 bits)
-            using (var cryptoProvider = new RNGCryptoServiceProvider())
+            string secret = "RmFzdGx5IEp3dCBTdHJpbmcgU2VjdXJpdHkgS2V5"; // This should be a secure secret, not a simple string
+
+            return new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
+        }
+        public static string GenerateAccessToken(string id, string name)
+        {
+            Random r = new Random();
+
+            List<Claim> claims = new List<Claim>
             {
-                var bytes = new byte[32]; // 32 bytes = 256 bits
-                cryptoProvider.GetBytes(bytes);
-                return new SymmetricSecurityKey(bytes);
-            }
+                new Claim(ClaimTypes.NameIdentifier,id),
+                new Claim(ClaimTypes.Name,name),
+                new Claim("tokenId",r.Next().ToString())
+            };
+
+            JwtSecurityToken jwt = new JwtSecurityToken(
+                issuer: "Issuer",
+                audience: "https://localhost:7157/",
+                claims: claims,
+                expires: DateTime.UtcNow.Add(TimeSpan.FromMinutes(15)),
+                signingCredentials: new SigningCredentials(AuthService.GenerateSecurityKey(), SecurityAlgorithms.HmacSha256)
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(jwt);
         }
     }
 }

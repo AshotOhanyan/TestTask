@@ -25,7 +25,7 @@ namespace TestTaskData.Repositories.UserRepository
 
         public async Task<IEnumerable<User>> GetAllUsers()
         {
-            return await _context.Users.ToListAsync();
+            return await _context.Users.Include(x => x.Images).Include(x => x.Friends).ToListAsync();
         }
 
         public async Task CreateUser(User user)

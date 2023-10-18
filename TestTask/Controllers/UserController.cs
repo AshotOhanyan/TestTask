@@ -15,17 +15,13 @@ namespace TestTask.Controllers
     public class UserController : ControllerBase
     {
         private readonly IUserRepository userRepository;
-        private readonly SignInManager<User> signInManager;
 
-        public UserController(IUserRepository userRepository, SignInManager<User> signInManager)
+        public UserController(IUserRepository userRepository)
         {
             this.userRepository = userRepository;
-            this.signInManager = signInManager;
-
         }
 
         [HttpPost]
-        [ValidateAntiForgeryToken]
         [AllowAnonymous]
         public async Task<IActionResult> Register([FromBody] UserRegistrationModel model)
         {
@@ -54,7 +50,6 @@ namespace TestTask.Controllers
         }
 
         [HttpPost]
-        [ValidateAntiForgeryToken]
         [AllowAnonymous]
         public async Task<IActionResult> Login(UserLoginModel model)
         {
@@ -62,7 +57,7 @@ namespace TestTask.Controllers
 
             string accessToken;
 
-            User? user = (await userRepository.GetAllUsers()).FirstOrDefault(x => x.UserName == model.Username); ;
+            User? user = (await userRepository.GetAllUsers()).FirstOrDefault(x => x.UserName == model.Username); 
 
 
             if (user == null)
@@ -70,44 +65,35 @@ namespace TestTask.Controllers
                 return BadRequest("User does not exists.");
             }
 
-            string passwordHash = AuthService.CreatePasswordHash(model.Password, out passwordHash, out Convert.FromBase64String(user.Salt)); ;
+            bool IsPasswordCorrect = AuthService.VerifyPasswordHash(model.Password, Convert.FromBase64String(user.PasswordHash), Convert.FromBase64String(user.Salt));
 
-            if (passwordHash != user.Password!.Trim())
+            if (!IsPasswordCorrect)
             {
-                throw new SignInFailedException("Wrong Password!");
+                return BadRequest("Password is wrong!");
             }
 
 
-            try
-            {
-
-                if (string.IsNullOrEmpty(user.UserName) || string.IsNullOrEmpty(user.Email))
-                {
-                    throw new SignInFailedException("Username and Email can not be empty!");
-                }
-
-                accessToken = GenerateAccessToken(user.Id.ToString(), user.UserName, user.Email);
-                string refreshToken = GenerateRefreshToken();
-
-                await _repo.UpdateDbObjectAsync(user.Id, new User { RefreshToken = refreshToken });
-
-            }
-            catch
-            {
-                throw new SignInFailedException("Error while creating jwt token!");
-            }
 
 
-            return accessToken;
+            accessToken = AuthService.GenerateAccessToken(user.Id.ToString(), user.UserName);
+
+
+
+
+
+            return Ok(accessToken);
 
         }
 
         [HttpGet]
         [Authorize]
 
-        public async Task<IEnumerable<User>> GetUsersAsync()
+        public async Task<IEnumerable<User>> GetUsersWithImagesAndFriendsAsync()
         {
             return await userRepository.GetAllUsers();
         }
+
+
+
     }
 }
